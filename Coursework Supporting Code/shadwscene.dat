@@ -1,0 +1,13 @@
+2
+
+plane.brep
+Trns_scale( [6 4 1])*Trns_xrot( 70*pi/180 )*Trns_shift( [0 -0.5 4] );
+
+
+cube.brep
+Trns_shift( [0 0 -0.5] )*Trns_zrot(pi*30/180)*Trns_xrot( 70*pi/180 )*Trns_shift( [0.4 -0.5 4] );
+
+256 256 1 1
+
+0.3 0.3 0.3
+1 0.5 -0.5
