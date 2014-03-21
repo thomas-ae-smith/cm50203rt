@@ -1,0 +1,16 @@
+3
+
+cylinder.brep
+Trns_zrot(0*pi/180)*Trns_xrot( 30*pi/180 )*Trns_yrot( 30*pi/180 )*Trns_shift( [-0.25 -0.15 6.5] );
+
+cube.brep
+Trns_zrot(0*pi/180)*Trns_xrot( 30*pi/180 )*Trns_yrot( 30*pi/180 )*Trns_shift( [1 0.8 8] );
+
+cube.brep
+Trns_yrot(150*pi/180)*Trns_xrot( -132*pi/180 )*Trns_zrot( 210*pi/180 )*Trns_shift( [1.5 -0.5 9] );
+
+
+256 256 1 1
+
+0.3 0.3 0.3
+1 0.5 -0.5
