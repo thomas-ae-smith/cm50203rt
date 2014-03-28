@@ -66,7 +66,8 @@ objects.append(readobj('plane.obj', 'plane', vec(128, 128, 0)))
 image_width = 360
 image_height = 200
 # The size of the image plane (in the 3D space)
-window_width = image_width/image_height
+window_width = (image_width*1.0)/image_height
+print window_width
 window_height = 1
 # The values to use for the ambient light, RGB.
 ambientlight = vec(0.3, 0.3, 0.3)
@@ -86,7 +87,7 @@ cam_normal = vec(0, 0, 1)
 # The centre of the image plane, computed from the other values for easy reference.
 cam_coi = cam_focus + cam_normal * cam_focallength
 cam_tlp = cam_coi - cam_right * 0.5 * window_width + cam_up * 0.5 * window_height
-
+print cam_tlp
 # returns the world coordinates of a point on the image plane
 # where x and y are planespace coordinates [0-r] and [0-1]
 def getWindowPoint(x, y):
