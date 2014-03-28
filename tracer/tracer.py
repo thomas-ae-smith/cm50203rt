@@ -1,6 +1,10 @@
 import numpy
 from PIL import Image
 
+# debug flags
+CULLING = True
+QUICK_RENDER = False
+
 # shorthand
 def vec(a, b, c):
 	return numpy.array([a, b, c])
@@ -97,27 +101,33 @@ def normalise(v):
 	return v
 
 def intersect(origin, ray, obj):
+	# initialise a collision record
+	c_rec = {'hit': False}
+	# initialise t to maximum possible
 	t = numpy.inf
 
 	# check the culling sphere collision
-	sr = obj['centre'] - origin
-	dsr = numpy.dot(sr, ray)
+	if (CULLING):
+		sr = obj['centre'] - origin
+		dsr = numpy.dot(sr, ray)
 
-	d = dsr*dsr - numpy.dot(sr,sr) + obj['radius'] * obj['radius']
-	if d < 0: return t
-	d = numpy.sqrt(d)
-	
-	t1 = dsr + d
-	if t1 < 0: return t
-	
-	t2 = dsr - d
-	if t2 > t: return t
+		d = dsr*dsr - numpy.dot(sr,sr) + obj['radius'] * obj['radius']
+		if d < 0: return c_rec
+		d = numpy.sqrt(d)
+		
+		t1 = dsr + d
+		if t1 < 0: return c_rec
+		
+		t2 = dsr - d
+		if t2 > t: return c_rec
 
-	# if t2 < 0:
-	# 	t = t1
-	# else:
-	# 	t = t2
-	# return t
+		# if rendering only culling spheres
+		if (QUICK_RENDER):
+			if t2 < 0:
+				t = t1
+			else:
+				t = t2
+			return t
 
 	# print "checking", obj['name']
 	for i, points in enumerate(obj['tri']):
@@ -141,28 +151,38 @@ def intersect(origin, ray, obj):
 			continue
 		if (u+v > 1):
 			continue
-		t = min(numpy.dot(e2, qvec) * invdet, t)
-		# print "intersection at ", t
-	return t
+
+		if (numpy.dot(e2, qvec) * invdet < t):
+			# we've found a collision, record the variables
+			c_rec['hit'] = True
+			c_rec['t'] = t = numpy.dot(e2, qvec) * invdet
+			c_rec['tri_id'] = i
+			c_rec['norm'] = numpy.cross(e1, e2)
+			c_rec['u'] = u
+			c_rec['v'] = v
+			c_rec['colour'] = obj['colour']
+
+	return c_rec
 
 
 # trace a numpy vector
 def trace(origin, ray):
 	t = numpy.inf
+	c_rec = {}
 
 	for i, obj in enumerate(objects):
 		coll = intersect(origin, ray, obj)
-		if coll < t:
-				t = coll
-				coll_id = i
-				# print 'updated t to', t
+		if coll['hit'] and coll['t'] < t:
+				c_rec = coll
+				t = c_rec['t']
+				c_rec['obj_id'] = i
 
 	if t == numpy.inf:
 		return (0, 128, 0)
 
 		
 	# print 'colour is ',  objects[coll_id]['colour']
-	return objects[coll_id]['colour']
+	return c_rec['colour']
 
 
 image = Image.new("RGB", (image_width, image_height))
