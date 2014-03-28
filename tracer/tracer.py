@@ -46,6 +46,8 @@ objects = [{}]
 # objects[0] = {'name': "plane", 'colour': (128, 0, 0), 'tri': [[vec(1, 1, 0), vec(1, -1, 0), vec(-1, -1, 0)]]}
 objects[0] = {'name': "plane", 'colour': (128, 0, 0), 'tri': [[vec(1, 1, 0), vec(-1, -1, 0), vec(-1, 1, 0)],[vec(1, 1, 0), vec(1, -1, 0), vec(-1, -1, 0)]], 'centre': vec(0, 0, 0,), 'radius': 1.414213562}
 objects.append(readobj('cube.obj'))
+objects.append(readobj('cylinder.obj'))
+objects.append(readobj('plane.obj'))
 print objects
 # scene.objects: This contains some number of objects in the scene. Double click on this, and then one of the cells to view its properties. We talked about these in Lab Sheet 2, but a quick refresher:
 #  object.x: Ignore, gives original points, use transformed points instead.
@@ -97,25 +99,25 @@ def intersect(origin, ray, obj):
 	t = numpy.inf
 
 	# check the culling sphere collision
-	sr = obj['centre'] - origin
-	dsr = numpy.dot(sr, ray)
+	# sr = obj['centre'] - origin
+	# dsr = numpy.dot(sr, ray)
 
-	d = dsr*dsr - numpy.dot(sr,sr) + obj['radius']
-	if d < 0: return t
-	d = numpy.sqrt(d)
+	# d = dsr*dsr - numpy.dot(sr,sr) + obj['radius']
+	# if d < 0: return t
+	# d = numpy.sqrt(d)
 	
-	t1 = dsr + d
-	if t1 < 0: return t
+	# t1 = dsr + d
+	# if t1 < 0: return t
 	
-	t2 = dsr - d
-	if t2 > t: return t
+	# t2 = dsr - d
+	# if t2 > t: return t
 
 	# if t2 < 0:
 	# 	t = t1
 	# else:
 	# 	t = t2
 	# return t
-	
+
 	# print "checking", obj['name']
 	for i, points in enumerate(obj['tri']):
 		e1 = points[1] - points[0]
