@@ -5,7 +5,7 @@ from PIL import Image
 def vec(a, b, c):
 	return numpy.array([a, b, c])
 
-def readobj(filename):
+def readobj(filename, name, colour):
 	obj = {}
 	points = []
 	norms = []
@@ -24,7 +24,8 @@ def readobj(filename):
 				tri += [points[int(f[0])-1]]
 			tris += [tri]
 	obj['tri'] = tris
-	obj['colour'] = (0, 0, 255)
+	obj['colour'] = colour
+	obj['name'] = name
 	obj['centre'] = vec(numpy.mean([x[0] for x in points]), numpy.mean([x[1] for x in points]), numpy.mean([x[2] for x in points]))
 	obj['radius'] = max(map(numpy.linalg.norm, [x - obj['centre'] for x in points]))
 	# print obj
@@ -44,10 +45,10 @@ def readobj(filename):
 objects = [{}]
 # objects[0] = {'name': "plane", 'colour': (128, 0, 0), 'tri': [[ vec(1, 1, 0), vec(-1, -1, 0),vec(-1, 1, 0)]]}
 # objects[0] = {'name': "plane", 'colour': (128, 0, 0), 'tri': [[vec(1, 1, 0), vec(1, -1, 0), vec(-1, -1, 0)]]}
-objects[0] = {'name': "plane", 'colour': (128, 0, 0), 'tri': [[vec(1, 1, 0), vec(-1, -1, 0), vec(-1, 1, 0)],[vec(1, 1, 0), vec(1, -1, 0), vec(-1, -1, 0)]], 'centre': vec(0, 0, 0,), 'radius': 1.414213562}
-objects.append(readobj('cube.obj'))
-objects.append(readobj('cylinder.obj'))
-objects.append(readobj('plane.obj'))
+objects[0] = {'name': "plane", 'colour': (128, 0, 0), 'tri': [[vec(1, 1, 0), vec(-1, -1, 0), vec(-1, 1, 0)],[vec(1, 1, 0), vec(1, -1, 0), vec(-1, -1, 0)]], 'centre': vec(0, 0, 0,), 'radius': numpy.sqrt(2.0)}
+objects.append(readobj('cube.obj', 'cube', (0, 0, 256)))
+objects.append(readobj('cylinder.obj', 'cylinder', (0, 0, 256)))
+objects.append(readobj('plane.obj', 'plane', (128, 128, 0)))
 print objects
 # scene.objects: This contains some number of objects in the scene. Double click on this, and then one of the cells to view its properties. We talked about these in Lab Sheet 2, but a quick refresher:
 #  object.x: Ignore, gives original points, use transformed points instead.
@@ -99,18 +100,18 @@ def intersect(origin, ray, obj):
 	t = numpy.inf
 
 	# check the culling sphere collision
-	# sr = obj['centre'] - origin
-	# dsr = numpy.dot(sr, ray)
+	sr = obj['centre'] - origin
+	dsr = numpy.dot(sr, ray)
 
-	# d = dsr*dsr - numpy.dot(sr,sr) + obj['radius']
-	# if d < 0: return t
-	# d = numpy.sqrt(d)
+	d = dsr*dsr - numpy.dot(sr,sr) + obj['radius'] * obj['radius']
+	if d < 0: return t
+	d = numpy.sqrt(d)
 	
-	# t1 = dsr + d
-	# if t1 < 0: return t
+	t1 = dsr + d
+	if t1 < 0: return t
 	
-	# t2 = dsr - d
-	# if t2 > t: return t
+	t2 = dsr - d
+	if t2 > t: return t
 
 	# if t2 < 0:
 	# 	t = t1
@@ -124,8 +125,11 @@ def intersect(origin, ray, obj):
 		e2 = points[2] - points[0]
 		pvec = numpy.cross(ray, e2)
 		det = numpy.dot(e1, pvec)
-		if (det < 1e-6):
-			continue
+
+		# back-face culling
+		# if (det < 1e-6):
+		# 	continue
+
 		invdet = 1/det
 		tvec = origin - points[0]
 		u = numpy.dot(tvec, pvec) * invdet
@@ -179,4 +183,4 @@ for i, x in enumerate(numpy.linspace(0, window_width, image_width)):
 		raw[i,j] = colour
 		# raw[x,y] = (int((y*256.0)/h), int((x*256.0)/w), 256)
 
-image.save("scene.png")
+image.save("imgs/scene.png")
