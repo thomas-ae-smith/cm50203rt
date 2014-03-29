@@ -5,6 +5,8 @@ from PIL import Image
 CULLING = True
 QUICK_RENDER = False
 SHADING = True
+MIRRORS = True
+TRANSPARENCY = True
 
 # shorthand
 def vec(a, b, c):
@@ -53,8 +55,9 @@ def readobj(filename, name, colour):
 # plane = 'Trns_xrot(  1.5708 )';		*15?
 # window = [256 256 1 1]; % you can define the window differently if you like
 
-objects = [{}]
-objects[0] = {'name': "plane", 'colour': vec(128, 0, 0), 'tri': [[vec(1, 1, 0), vec(-1, -1, 0), vec(-1, 1, 0)],[vec(1, 1, 0), vec(1, -1, 0), vec(-1, -1, 0)]], 'centre': vec(0, 0, 0,), 'radius': numpy.sqrt(2.0)}
+objects = []
+# objects[0] = {'name': "mirror", 'colour': vec(128, 0, 0), 'tri': [[vec(2, 2, 4), vec(-2, 0, 4), vec(-2, 2, 4)],[vec(2, 2, 4), vec(2, 0, 4), vec(-2, 0, 4)]], 'centre': vec(0, 1, 4,), 'radius': numpy.sqrt(4.0), 'mirror': True}
+objects.append(readobj('mirror.obj', 'mirror', vec(0, 0, 128)))
 objects.append({'name': "sphere", 'colour': vec(0, 128, 128), 'tri': [], 'centre': vec(-4, 4, 2), 'radius': 2.0})
 objects.append(readobj('cube.obj', 'cube', vec(0, 0, 256)))
 objects.append(readobj('cylinder.obj', 'cylinder', vec(0, 0, 256)))
@@ -67,15 +70,15 @@ image_width = 360
 image_height = 200
 # The size of the image plane (in the 3D space)
 window_width = (image_width*1.0)/image_height
-print window_width
 window_height = 1
 # The values to use for the ambient light, RGB.
 ambientlight = vec(0.3, 0.3, 0.3)
-Kd = 2
-Ks = 25
+Kd = 0.005
+Ks = 0.4
 p = 10
+trans = 0.7
 # Directional light locations
-lights = [vec(5, 5, -5), vec(-5, 5, -5)]
+lights = [[vec(5, 5, -5), vec(256,256,256)], [vec(-10, 5, -5), vec(256, 32, 32)]]
 # The focal point of the camera in 3D space.
 cam_focus = vec(0, 3, -10)
 # The distance between the focal point and the image plane.
@@ -87,7 +90,6 @@ cam_normal = vec(0, 0, 1)
 # The centre of the image plane, computed from the other values for easy reference.
 cam_coi = cam_focus + cam_normal * cam_focallength
 cam_tlp = cam_coi - cam_right * 0.5 * window_width + cam_up * 0.5 * window_height
-print cam_tlp
 # returns the world coordinates of a point on the image plane
 # where x and y are planespace coordinates [0-r] and [0-1]
 def getWindowPoint(x, y):
@@ -121,10 +123,10 @@ def intersect(origin, ray, obj):
 				t = t1
 			else:
 				t = t2
-			c_rec = {'hit': True, 't': t, 'colour': obj['colour'], 'norm': normalise(sr - (t*ray))}
+			c_rec = {'hit': True, 't': t, 'colour': obj['colour'], 'norm': normalise((t*ray)-sr)}
 			return c_rec
 
-	# print "checking", obj['name']
+	# fast ray-triange, as in http://www.scratchapixel.com/lessons/3d-basic-lessons/lesson-9-ray-triangle-intersection/m-ller-trumbore-algorithm/
 	for i, points in enumerate(obj['tri']):
 		e1 = points[1] - points[0]
 		e2 = points[2] - points[0]
@@ -147,12 +149,12 @@ def intersect(origin, ray, obj):
 		if (u+v > 1):
 			continue
 
-		if (numpy.dot(e2, qvec) * invdet < t):
+		if (0 < numpy.dot(e2, qvec) * invdet < t):
 			# we've found a collision, record the variables
 			c_rec['hit'] = True
 			c_rec['t'] = t = numpy.dot(e2, qvec) * invdet
 			c_rec['tri_id'] = i
-			c_rec['norm'] = numpy.cross(e1, e2)
+			c_rec['norm'] = normalise(-numpy.cross(e1, e2)) if (det < 1e-6) else normalise(numpy.cross(e1, e2))
 			c_rec['u'] = u
 			c_rec['v'] = v
 			c_rec['colour'] = obj['colour']
@@ -176,14 +178,30 @@ def trace(origin, ray):
 	if c_rec['hit'] == False:
 		return vec(0, 128, 0)
 
+	colour = c_rec['colour']
+	norm = c_rec['norm']
+	obj = objects[c_rec['obj_id']]
+
+	# reflected ray from http://paulbourke.net/geometry/reflected/
+	if MIRRORS and obj['name'] == 'mirror':
+		# print origin+t*ray, normalise(ray - 2.0 * norm * numpy.dot(ray, norm))
+		colour = trace(origin+(t*ray*0.99), normalise(ray - 2.0 * norm * numpy.dot(ray, norm)))
+	
+	if TRANSPARENCY and obj['name'] == 'cylinder':
+		# print origin+t*ray, normalise(ray - 2.0 * norm * numpy.dot(ray, norm))
+		colour = trans*colour + (1-trans) * trace(origin+(t*ray*1.01), ray)
+
 	if not SHADING:
-		return c_rec['colour']
+		return colour
 
-	La = ambientlight * c_rec['colour'] 
+	La = Ld = Ls = vec(0,0,0)
 
-	Ld = Kd * vec(1,1,1) * max(0, numpy.dot(c_rec['norm'], (c_rec['t'] * ray) - lights[0]))
-	h = H(ray, (c_rec['t'] * ray) - lights[0])
-	Ls = Ks * vec(1,1,1) * numpy.power(max(0, numpy.dot(c_rec['norm'], h)), p)
+	La = ambientlight * colour
+
+	if not (MIRRORS and obj['name'] == 'mirror'):
+		Ld = Kd * sum([(light[1] * max(0, numpy.dot(norm, light[0] - (origin + t * ray)))) for light in lights])
+
+	Ls = Ks * sum([(light[1] * numpy.power(max(0, numpy.dot(norm, H(-ray, light[0] - (origin + t * ray)))), p)) for light in lights])
 
 	# print (La + Ld + Ls)
 	return numpy.clip(La + Ld + Ls, 0, 256)
