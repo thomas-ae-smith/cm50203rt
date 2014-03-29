@@ -4,12 +4,12 @@ from PIL import Image
 # debug flags
 CULLING = True
 QUICK_RENDER = False
-SHADING = False
-MIRRORS = False
-TRANSPARENCY = False
-SHADOWS = False
-NOISE = False
-TEAPOT = True
+SHADING = True
+MIRRORS = True
+TRANSPARENCY = True
+SHADOWS = True
+NOISE = True
+TEAPOT = False
 
 # shorthand
 def vec(a, b, c):
@@ -26,7 +26,7 @@ def H(camera, light):
 	return normalise(normalise(camera) + normalise(light))
 
 # load an .obj file vertices and apply uniform colour
-def readobj(filename, name, colour):
+def readobj(filename, name, colour, trans = vec(0,0,0)):
 	obj = {}
 	points = []
 	norms = []
@@ -35,7 +35,7 @@ def readobj(filename, name, colour):
 	for line in open(filename, 'r'):
 		line = line.split()
 		if line[0] == "v":
-			points += [vec(float(line[1]), float(line[2]), float(line[3]))]
+			points += [vec(float(line[1]), float(line[2]), float(line[3])) + trans]
 		if line[0] == "vn":
 			norms += [vec(float(line[1]), float(line[2]), float(line[3]))]
 		if line[0] == "f":
@@ -63,10 +63,10 @@ objects = []
 objects.append(readobj('mirror.obj', 'mirror', vec(0, 0, 128)))
 objects.append({'name': "sphere", 'colour': vec(0, 128, 128), 'tri': [], 'centre': vec(-4, 4, 2), 'radius': 2.0})
 objects.append(readobj('cube.obj', 'cube', vec(0, 0, 256)))
-objects.append(readobj('cylinder.obj', 'cylinder', vec(0, 0, 256)))
+objects.append(readobj('cylinder.obj', 'cylinder', vec(0, 0, 256), vec(-1.0, 0.0, -0.5)))
 objects.append(readobj('plane.obj', 'plane', vec(128, 128, 0)))
 if TEAPOT:
-	objects.append(readobj('teapot.obj', 'teapot', vec(256, 128, 128)))
+	objects.append(readobj('steapot.obj', 'teapot', vec(256, 128, 128), vec(3.0, 0.0, -3.0)))
 #  object.colour: Each row gives the colour of the corresponding triangle. First three columns are RGB values. Final two are a reflectance and refraction index for full ray-tracing.
 #  object.n: The normal for each triangle.
 
@@ -81,7 +81,7 @@ ambientlight = vec(0.3, 0.3, 0.3)
 Kd = 0.01
 Ks = 0.2
 p = 10
-trans = 0.1
+trans = 0.4
 # Directional light locations
 lights = [[vec(5, 5, -5), vec(256,256,256)], [vec(-10, 5, -5), vec(256, 32, 32)]]
 # The focal point of the camera in 3D space.
@@ -198,6 +198,17 @@ def specular(norm, point, ray):
 				if not(SHADOWS and trace(point, normalise(light[0]-point), True))
 					])
 
+def diffandspec(norm, point, ray):
+	objLights = lights
+	if SHADOWS:
+		objLights = [[light[0], light[1] * trace(point, normalise(light[0]-point), True)] for light in lights]
+	return Kd * sum([
+		(light[1] * max(0, numpy.dot(norm, light[0] - point))) 
+			for light in objLights ]), \
+		   Ks * sum([
+		(light[1] * numpy.power(max(0, numpy.dot(norm, H(-ray, light[0] - point))), p)) 
+			for light in objLights])
+
 # trace a numpy vector
 def trace(origin, ray, failfast = False):
 	t = numpy.inf
@@ -214,7 +225,7 @@ def trace(origin, ray, failfast = False):
 	if c_rec['hit'] == False:
 		if failfast:
 			# print 'no intersection'
-			return False
+			return vec(1.0,1.0,1.0)
 		else:
 			s = 128
 			if NOISE:
@@ -223,13 +234,17 @@ def trace(origin, ray, failfast = False):
 							octave(64,4,ray), octave(128,2,ray,lambda x : (x+0.5)/2.0) ])
 			return vec(s, s, 256)
 	else: 
-		if failfast:
-			# print 'intersection'
-			return True
+		colour = c_rec['colour']
+		norm = c_rec['norm']
+		obj = objects[c_rec['obj_id']]
 
-	colour = c_rec['colour']
-	norm = c_rec['norm']
-	obj = objects[c_rec['obj_id']]
+		if failfast:
+			if TRANSPARENCY and obj['name'] == 'cylinder':
+				# print 'lit through cylinder'
+				return vec(1-trans,1-trans,1-trans)
+			# print 'intersection'
+			return vec(0.0,0.0,0.0)
+
 
 	# reflected ray from http://paulbourke.net/geometry/reflected/
 	if MIRRORS and obj['name'] == 'mirror':
@@ -257,9 +272,10 @@ def trace(origin, ray, failfast = False):
 	La = ambientlight * colour
 
 	# if not (MIRRORS and obj['name'] == 'mirror'):
-	Ld = diffuse(norm, (origin + t * ray * 0.9999))
+	# Ld = diffuse(norm, (origin + t * ray * 0.9999))
 
-	Ls = specular(norm, (origin + t * ray * 0.9999), ray)
+	# Ls = specular(norm, (origin + t * ray * 0.9999), ray)
+	Ld, Ls = diffandspec(norm, (origin + t * ray * 0.9999), ray)
 
 	# print (La + Ld + Ls)
 	return numpy.clip(La + Ld + Ls, 0, 256)
