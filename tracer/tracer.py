@@ -66,8 +66,8 @@ objects.append(readobj('plane.obj', 'plane', vec(128, 128, 0)))
 #  object.n: The normal for each triangle.
 
 # The resolution for this render
-image_width = 360
-image_height = 200
+image_width = 1440
+image_height = 900
 # The size of the image plane (in the 3D space)
 window_width = (image_width*1.0)/image_height
 window_height = 1
@@ -76,7 +76,7 @@ ambientlight = vec(0.3, 0.3, 0.3)
 Kd = 0.005
 Ks = 0.4
 p = 10
-trans = 0.7
+trans = 0.1
 # Directional light locations
 lights = [[vec(5, 5, -5), vec(256,256,256)], [vec(-10, 5, -5), vec(256, 32, 32)]]
 # The focal point of the camera in 3D space.
@@ -224,4 +224,4 @@ for i, x in enumerate(numpy.linspace(0, window_width, image_width)):
 		colour = trace(cam_focus, ray)
 		raw[i,j] = tuple(colour.astype(int))
 
-image.save("imgs/scene.png")
+image.save("imgs/big.png")
