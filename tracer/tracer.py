@@ -1,12 +1,15 @@
-import numpy
+import numpy, noise
 from PIL import Image
 
 # debug flags
 CULLING = True
 QUICK_RENDER = False
-SHADING = True
-MIRRORS = True
-TRANSPARENCY = True
+SHADING = False
+MIRRORS = False
+TRANSPARENCY = False
+SHADOWS = False
+NOISE = False
+TEAPOT = True
 
 # shorthand
 def vec(a, b, c):
@@ -62,19 +65,21 @@ objects.append({'name': "sphere", 'colour': vec(0, 128, 128), 'tri': [], 'centre
 objects.append(readobj('cube.obj', 'cube', vec(0, 0, 256)))
 objects.append(readobj('cylinder.obj', 'cylinder', vec(0, 0, 256)))
 objects.append(readobj('plane.obj', 'plane', vec(128, 128, 0)))
+if TEAPOT:
+	objects.append(readobj('teapot.obj', 'teapot', vec(256, 128, 128)))
 #  object.colour: Each row gives the colour of the corresponding triangle. First three columns are RGB values. Final two are a reflectance and refraction index for full ray-tracing.
 #  object.n: The normal for each triangle.
 
 # The resolution for this render
-image_width = 1440
-image_height = 900
+image_width = 360
+image_height = 200
 # The size of the image plane (in the 3D space)
 window_width = (image_width*1.0)/image_height
 window_height = 1
 # The values to use for the ambient light, RGB.
 ambientlight = vec(0.3, 0.3, 0.3)
-Kd = 0.005
-Ks = 0.4
+Kd = 0.01
+Ks = 0.2
 p = 10
 trans = 0.1
 # Directional light locations
@@ -94,6 +99,24 @@ cam_tlp = cam_coi - cam_right * 0.5 * window_width + cam_up * 0.5 * window_heigh
 # where x and y are planespace coordinates [0-r] and [0-1]
 def getWindowPoint(x, y):
 	return cam_tlp + x * cam_right - y * cam_up
+
+def octave(magnitude, frequency, input, mod_func = lambda x : (x+1.0)/2.0):
+	return {'magnitude': float(magnitude), 'frequency': float(frequency), 
+			'input': input, 'mod_func': mod_func}
+
+def simplex(base, noise_func, octaves):
+	output = base
+
+	output += sum([ 
+			octave['magnitude'] * 
+				octave['mod_func'](
+					noise_func(
+						*tuple(octave['input'] * octave['frequency'])
+					)
+				)
+		for octave in octaves])
+
+	return output
 
 
 def intersect(origin, ray, obj):
@@ -161,9 +184,22 @@ def intersect(origin, ray, obj):
 
 	return c_rec
 
+def diffuse(norm, point):
+	return Kd * sum([
+		(light[1] * max(0, numpy.dot(norm, light[0] - point))) 
+			for light in lights 
+				if not(SHADOWS and trace(point, normalise(light[0]-point), True))
+					])
+
+def specular(norm, point, ray):
+	return Ks * sum([
+		(light[1] * numpy.power(max(0, numpy.dot(norm, H(-ray, light[0] - point))), p)) 
+			for light in lights
+				if not(SHADOWS and trace(point, normalise(light[0]-point), True))
+					])
 
 # trace a numpy vector
-def trace(origin, ray):
+def trace(origin, ray, failfast = False):
 	t = numpy.inf
 	c_rec = {'hit': False}
 
@@ -176,7 +212,20 @@ def trace(origin, ray):
 
 	# if we've failed to hit anything, return a background colour
 	if c_rec['hit'] == False:
-		return vec(0, 128, 0)
+		if failfast:
+			# print 'no intersection'
+			return False
+		else:
+			s = 128
+			if NOISE:
+				s = simplex(16, noise.snoise3, [
+							octave(16, 16, ray), octave(32,8,ray), 
+							octave(64,4,ray), octave(128,2,ray,lambda x : (x+0.5)/2.0) ])
+			return vec(s, s, 256)
+	else: 
+		if failfast:
+			# print 'intersection'
+			return True
 
 	colour = c_rec['colour']
 	norm = c_rec['norm']
@@ -191,6 +240,15 @@ def trace(origin, ray):
 		# print origin+t*ray, normalise(ray - 2.0 * norm * numpy.dot(ray, norm))
 		colour = trans*colour + (1-trans) * trace(origin+(t*ray*1.01), ray)
 
+	if NOISE and obj['name'] == 'plane':
+		uv = numpy.array([c_rec['u'], c_rec['v']])
+		r = simplex(0, noise.snoise2, [
+			octave(0.5, 200, uv),
+			octave(0.7, 1, uv * numpy.array([50.0, 1.0]))
+			])
+		r = (r+1.0)/2.0
+		colour = vec(180*r, 130*r, 80*r)
+
 	if not SHADING:
 		return colour
 
@@ -198,10 +256,10 @@ def trace(origin, ray):
 
 	La = ambientlight * colour
 
-	if not (MIRRORS and obj['name'] == 'mirror'):
-		Ld = Kd * sum([(light[1] * max(0, numpy.dot(norm, light[0] - (origin + t * ray)))) for light in lights])
+	# if not (MIRRORS and obj['name'] == 'mirror'):
+	Ld = diffuse(norm, (origin + t * ray * 0.9999))
 
-	Ls = Ks * sum([(light[1] * numpy.power(max(0, numpy.dot(norm, H(-ray, light[0] - (origin + t * ray)))), p)) for light in lights])
+	Ls = specular(norm, (origin + t * ray * 0.9999), ray)
 
 	# print (La + Ld + Ls)
 	return numpy.clip(La + Ld + Ls, 0, 256)
@@ -209,6 +267,7 @@ def trace(origin, ray):
 
 
 
+print "Generating", image_width, "x", image_height, "render"
 image = Image.new("RGB", (image_width, image_height))
 raw = image.load()
 
@@ -224,4 +283,4 @@ for i, x in enumerate(numpy.linspace(0, window_width, image_width)):
 		colour = trace(cam_focus, ray)
 		raw[i,j] = tuple(colour.astype(int))
 
-image.save("imgs/big.png")
+image.save("imgs/scene.png")
