@@ -9,7 +9,7 @@ MIRRORS = True
 TRANSPARENCY = True
 SHADOWS = True
 NOISE = True
-TEAPOT = False
+TEAPOT = True
 
 # shorthand
 def vec(a, b, c):
@@ -71,8 +71,8 @@ if TEAPOT:
 #  object.n: The normal for each triangle.
 
 # The resolution for this render
-image_width = 360
-image_height = 200
+image_width = 1440
+image_height = 900
 # The size of the image plane (in the 3D space)
 window_width = (image_width*1.0)/image_height
 window_height = 1
@@ -299,4 +299,4 @@ for i, x in enumerate(numpy.linspace(0, window_width, image_width)):
 		colour = trace(cam_focus, ray)
 		raw[i,j] = tuple(colour.astype(int))
 
-image.save("imgs/scene.png")
+image.save("imgs/big.png")
