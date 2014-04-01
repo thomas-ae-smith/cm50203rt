@@ -3,12 +3,12 @@ from PIL import Image
 
 # debug flags
 CULLING = True
-QUICK_RENDER = False
-SHADING = True
+QUICK_RENDER = True
+SHADING = False
 MIRRORS = True
 TRANSPARENCY = True
 SHADOWS = True
-NOISE = True
+NOISE = False
 TEAPOT = True
 
 # shorthand
@@ -71,8 +71,8 @@ if TEAPOT:
 #  object.n: The normal for each triangle.
 
 # The resolution for this render
-image_width = 1440
-image_height = 900
+image_width = 360
+image_height = 200
 # The size of the image plane (in the 3D space)
 window_width = (image_width*1.0)/image_height
 window_height = 1
@@ -184,19 +184,19 @@ def intersect(origin, ray, obj):
 
 	return c_rec
 
-def diffuse(norm, point):
-	return Kd * sum([
-		(light[1] * max(0, numpy.dot(norm, light[0] - point))) 
-			for light in lights 
-				if not(SHADOWS and trace(point, normalise(light[0]-point), True))
-					])
+# def diffuse(norm, point):
+# 	return Kd * sum([
+# 		(light[1] * max(0, numpy.dot(norm, light[0] - point))) 
+# 			for light in lights 
+# 				if not(SHADOWS and trace(point, normalise(light[0]-point), True))
+# 					])
 
-def specular(norm, point, ray):
-	return Ks * sum([
-		(light[1] * numpy.power(max(0, numpy.dot(norm, H(-ray, light[0] - point))), p)) 
-			for light in lights
-				if not(SHADOWS and trace(point, normalise(light[0]-point), True))
-					])
+# def specular(norm, point, ray):
+# 	return Ks * sum([
+# 		(light[1] * numpy.power(max(0, numpy.dot(norm, H(-ray, light[0] - point))), p)) 
+# 			for light in lights
+# 				if not(SHADOWS and trace(point, normalise(light[0]-point), True))
+# 					])
 
 def diffandspec(norm, point, ray):
 	objLights = lights
@@ -299,4 +299,4 @@ for i, x in enumerate(numpy.linspace(0, window_width, image_width)):
 		colour = trace(cam_focus, ray)
 		raw[i,j] = tuple(colour.astype(int))
 
-image.save("imgs/big.png")
+image.save("imgs/scene.png")
